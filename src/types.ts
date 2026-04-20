@@ -39,6 +39,17 @@ export interface SemanticResult {
 // Analysis results
 // ---------------------------------------------------------------------------
 
+/**
+ * Inference block returned when the caller passes `domain: "auto"`.
+ * Absent from the JSON payload for any other `domain` value.
+ */
+export interface DomainInference {
+  inferred: string;
+  confidence: number;
+  fallback_used: boolean;
+  reasoning: string;
+}
+
 export interface AnalysisResult {
   structural_score: number;
   change_detected: boolean;
@@ -50,6 +61,10 @@ export interface AnalysisResult {
   provenance?: Record<string, unknown> | null;
   semantic?: SemanticResult | null;
   warning?: string | null;
+  /** Always populated by server 1.5.12+. The calibration actually applied. */
+  domain_applied?: string | null;
+  /** Populated only when the caller passed `domain: "auto"`. */
+  domain_inference?: DomainInference | null;
 }
 
 /**

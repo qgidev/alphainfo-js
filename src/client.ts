@@ -34,7 +34,7 @@ import type {
   VectorResult,
 } from "./types.js";
 
-const SDK_VERSION = "1.5.11";
+const SDK_VERSION = "1.5.12";
 const DEFAULT_BASE_URL = "https://www.alphainfo.io";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const ANALYZE_TIMEOUT_MS = 120_000;
@@ -183,7 +183,7 @@ function parseSemantic(raw: unknown): SemanticResult | null {
 }
 
 function parseAnalysis(data: Record<string, unknown>): AnalysisResult {
-  return {
+  const result: AnalysisResult = {
     structural_score: asNumber(data.structural_score),
     change_detected: asBool(data.change_detected),
     change_score: asNumber(data.change_score),
@@ -195,6 +195,22 @@ function parseAnalysis(data: Record<string, unknown>): AnalysisResult {
     semantic: parseSemantic(data.semantic),
     warning: typeof data.warning === "string" ? data.warning : null,
   };
+  // Briefing 1 — new fields on server 1.5.12+. Absent keys fall through to
+  // undefined, which the SDK exposes as `undefined` (not `null`) so TS
+  // destructuring with default-assignment works as expected.
+  if (typeof data.domain_applied === "string") {
+    result.domain_applied = data.domain_applied;
+  }
+  if (isPlainObject(data.domain_inference)) {
+    const inf = data.domain_inference;
+    result.domain_inference = {
+      inferred: asString(inf.inferred, "generic"),
+      confidence: asNumber(inf.confidence, 0),
+      fallback_used: asBool(inf.fallback_used, false),
+      reasoning: asString(inf.reasoning, ""),
+    };
+  }
+  return result;
 }
 
 function parseFingerprint(data: Record<string, unknown>): FingerprintResult {
@@ -522,6 +538,13 @@ export class AlphaInfo {
 
   /**
    * Run a structural analysis on a single signal.
+   *
+   * `domain` is optional. Omit for the universal `"generic"` calibration,
+   * pass `"auto"` to let the server infer the calibration from the signal
+   * (then read `result.domain_applied` + `result.domain_inference`), or
+   * name a specific domain (`"biomedical"`, `"finance"`, etc.). Aliases
+   * like `"fintech"` / `"biomed"` resolve server-side; real typos receive
+   * an HTTP 400 with a "Did you mean …?" suggestion.
    */
   async analyze(opts: {
     signal: number[];
@@ -549,6 +572,23 @@ export class AlphaInfo {
       timeoutMs: ANALYZE_TIMEOUT_MS,
     });
     return parseAnalysis(data);
+  }
+
+  /**
+   * Syntactic sugar for `analyze({ ..., domain: "auto" })`.
+   *
+   * Read `result.domain_applied` for the calibration the server picked,
+   * and `result.domain_inference` for the confidence + reasoning.
+   */
+  async analyzeAuto(opts: {
+    signal: number[];
+    sampling_rate: number;
+    baseline?: number[] | null;
+    metadata?: Record<string, unknown> | null;
+    include_semantic?: boolean;
+    use_multiscale?: boolean;
+  }): Promise<AnalysisResult> {
+    return this.analyze({ ...opts, domain: "auto" });
   }
 
   // -- fingerprint ----------------------------------------------------------

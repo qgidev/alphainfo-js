@@ -29,6 +29,7 @@ export type {
   BatchResult,
   ChannelResult,
   ConfidenceBand,
+  DomainInference,
   FingerprintResult,
   HealthStatus,
   MatrixResult,

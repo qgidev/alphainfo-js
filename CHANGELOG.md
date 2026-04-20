@@ -2,6 +2,23 @@
 
 All notable changes to the alphainfo JS/TS SDK.
 
+## [1.5.12] - 2026-04-20
+
+Added automatic domain inference; `domain` parameter now optional with
+sensible default.
+
+- New `DomainInference` type exported from `alphainfo`.
+- `AnalysisResult.domain_applied` — populated by server 1.5.12+.
+- `AnalysisResult.domain_inference` — populated only when the caller
+  passed `domain: "auto"`.
+- New `client.analyzeAuto({ signal, sampling_rate })` — sugar for
+  `analyze({ ..., domain: "auto" })`.
+- Docstring updates on `analyze()` explaining `"auto"`, aliases, and
+  the "Did you mean …?" suggestion path.
+
+Backwards-compatible — existing callers unaffected; new fields are
+`undefined` when the server omits them.
+
 ## [1.5.11] - 2026-04-20
 
 ### Connection cleanup improvements.
