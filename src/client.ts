@@ -34,7 +34,7 @@ import type {
   VectorResult,
 } from "./types.js";
 
-const SDK_VERSION = "1.5.10";
+const SDK_VERSION = "1.5.11";
 const DEFAULT_BASE_URL = "https://www.alphainfo.io";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const ANALYZE_TIMEOUT_MS = 120_000;
@@ -428,7 +428,9 @@ export class AlphaInfo {
   private readonly baseUrl: string;
   private readonly defaultTimeoutMs: number;
   private readonly defaultSignal?: AbortSignal;
+  private readonly abortCtrl = new AbortController();
   private rateLimit: RateLimitInfo | null = null;
+  private closed = false;
 
   constructor(opts: AlphaInfoOptions) {
     if (!opts.apiKey) {
@@ -446,13 +448,42 @@ export class AlphaInfo {
     return this.rateLimit;
   }
 
+  /**
+   * Close the client. Cancels any in-flight requests that haven't resolved
+   * yet and marks the instance as closed (further calls will throw).
+   *
+   * The JS SDK relies on the runtime's global fetch (Node 18+ undici or the
+   * browser), so there's no persistent TCP pool held per-instance — but
+   * calling close() gives you a deterministic hook to abort outstanding
+   * analyses during shutdown, and it enables `await using` in TS 5.2+.
+   *
+   * Idempotent.
+   */
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    try {
+      this.abortCtrl.abort();
+    } catch {
+      /* defensive — never throw from close() */
+    }
+  }
+
+  /** TS 5.2+ `await using client = new AlphaInfo(...)` hook. */
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
+
   private async request(opts: RequestOptions): Promise<Record<string, unknown>> {
+    if (this.closed) {
+      throw new NetworkError("client is closed — cannot issue new requests");
+    }
     const url = buildUrl(this.baseUrl, opts.path);
     const timeoutMs = opts.timeoutMs ?? this.defaultTimeoutMs;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
 
-    const parentSignals: AbortSignal[] = [];
+    const parentSignals: AbortSignal[] = [this.abortCtrl.signal];
     if (opts.signal) parentSignals.push(opts.signal);
     if (this.defaultSignal) parentSignals.push(this.defaultSignal);
     const onAbort = () => ctrl.abort();
