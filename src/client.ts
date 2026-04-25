@@ -34,7 +34,7 @@ import type {
   VectorResult,
 } from "./types.js";
 
-const SDK_VERSION = "1.5.15";
+const SDK_VERSION = "1.5.16";
 const DEFAULT_BASE_URL = "https://www.alphainfo.io";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const ANALYZE_TIMEOUT_MS = 120_000;
