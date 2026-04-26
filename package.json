@@ -1,6 +1,6 @@
 {
   "name": "alphainfo",
-  "version": "1.5.26",
+  "version": "1.5.27",
   "description": "TypeScript/JavaScript client for the alphainfo.io Structural Intelligence API",
   "keywords": [
     "alphainfo",
